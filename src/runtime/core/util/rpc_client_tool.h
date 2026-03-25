@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
+#include <memory>
 #include <optional>
 
 #include "aimrt_module_cpp_interface/executor/executor.h"
@@ -18,8 +20,8 @@ class RpcClientTool {
   using TimeoutHandle = std::function<void(MsgRecorder&&)>;
 
  public:
-  RpcClientTool() = default;
-  ~RpcClientTool() = default;
+  RpcClientTool() : shutdown_flag_(std::make_shared<std::atomic_bool>(false)) {}
+  ~RpcClientTool() { shutdown_flag_->store(true); }
 
   void RegisterTimeoutExecutor(aimrt::executor::ExecutorRef timeout_executor) {
     if (!timeout_executor.SupportTimerSchedule())
@@ -39,7 +41,13 @@ class RpcClientTool {
       return false;
 
     if (timeout_executor_) {
-      timeout_executor_.ExecuteAfter(timeout, [this, req_id]() {
+      // Capture shutdown_flag by shared_ptr so the timeout lambda
+      // remains safe even after RpcClientTool is destroyed.
+      auto flag = shutdown_flag_;
+      timeout_executor_.ExecuteAfter(timeout, [this, req_id, flag]() {
+        if (flag->load()) [[unlikely]]
+          return;
+
         auto msg_recorder_op = GetRecord(req_id);
         if (msg_recorder_op) [[unlikely]]
           timeout_handle_(std::move(*msg_recorder_op));
@@ -64,6 +72,8 @@ class RpcClientTool {
   }
 
  private:
+  std::shared_ptr<std::atomic_bool> shutdown_flag_;
+
   aimrt::executor::ExecutorRef timeout_executor_;
   TimeoutHandle timeout_handle_;
 

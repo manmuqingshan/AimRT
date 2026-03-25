@@ -101,7 +101,9 @@ void TimeWheelExecutor::Initialize(std::string_view name,
 
           while (!task_list.empty()) {
             auto itr = task_list.begin();
-            auto& cur_list = timing_wheel_vec_[ii].wheel[itr->tick_count % timing_wheel_vec_[ii].scale];
+            auto& cur_list =
+                timing_wheel_vec_[ii]
+                    .wheel[itr->tick_count % timing_wheel_vec_[ii].wheel.size()];
             cur_list.splice(cur_list.end(), task_list, itr);
           }
         }});
@@ -180,14 +182,13 @@ void TimeWheelExecutor::ExecuteAt(
       return;
     }
 
-    // Current time point time_point_
-    uint64_t temp_current_tick_count = current_tick_count_;
-    uint64_t diff_tick_count = virtual_tp / dt_count_ - current_tick_count_;
+    uint64_t target_tick = virtual_tp / dt_count_;
+    uint64_t diff_tick_count = target_tick - current_tick_count_;
 
     const size_t len = options_.wheel_size.size();
     for (size_t ii = 0; ii < len; ++ii) {
       if (diff_tick_count < options_.wheel_size[ii]) {
-        auto pos = (diff_tick_count + temp_current_tick_count) % options_.wheel_size[ii];
+        auto pos = target_tick % options_.wheel_size[ii];
 
         // TODO(): Sorting tasks based on time and inserting them into it
         timing_wheel_vec_[ii].wheel[pos].emplace_back(
@@ -195,10 +196,10 @@ void TimeWheelExecutor::ExecuteAt(
         return;
       }
       diff_tick_count /= options_.wheel_size[ii];
-      temp_current_tick_count /= options_.wheel_size[ii];
+      target_tick /= options_.wheel_size[ii];
     }
 
-    timing_task_map_[diff_tick_count + temp_current_tick_count].emplace_back(
+    timing_task_map_[target_tick].emplace_back(
         TaskWithTimestamp{virtual_tp / dt_count_, std::move(task)});
   } catch (const std::exception& e) {
     AIMRT_ERROR("{}", e.what());

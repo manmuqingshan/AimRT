@@ -345,9 +345,11 @@ bool Ros2RpcBackend::RegisterServiceFunc(
       remapped_func_name = GetRemappedFuncName(info.func_name, find_option->func_name, find_option->remapping_rule);
     }
 
+    auto server_key = std::string(info.module_name) + ":" + std::string(info.func_name);
+
     // Messages with ros2 type prefix
     if (CheckRosFunc(info.func_name)) {
-      if (ros2_adapter_server_map_.find(info.func_name) != ros2_adapter_server_map_.end()) {
+      if (ros2_adapter_server_map_.find(server_key) != ros2_adapter_server_map_.end()) {
         AIMRT_WARN(
             "Service '{}' is registered repeatedly in ros2 rpc backend, module '{}', lib path '{}'",
             info.func_name, info.module_name, info.pkg_path);
@@ -365,17 +367,16 @@ bool Ros2RpcBackend::RegisterServiceFunc(
           std::dynamic_pointer_cast<rclcpp::ServiceBase>(ros2_adapter_server_ptr),
           nullptr);
 
-      ros2_adapter_server_map_.emplace(info.func_name,
-                                       ros2_adapter_server_ptr);
+      ros2_adapter_server_map_.emplace(server_key, ros2_adapter_server_ptr);
 
-      AIMRT_INFO("Service '{}' is registered to ros2 rpc backend, ros2 func name is '{}'",
-                 info.func_name, ros2_func_name);
+      AIMRT_INFO("Service '{}' is registered to ros2 rpc backend, module '{}', ros2 func name is '{}'",
+                 info.func_name, info.module_name, ros2_func_name);
 
       return true;
     }
 
     // Messages without ros2 type prefix
-    if (ros2_adapter_wrapper_server_map_.find(info.func_name) != ros2_adapter_wrapper_server_map_.end()) {
+    if (ros2_adapter_wrapper_server_map_.find(server_key) != ros2_adapter_wrapper_server_map_.end()) {
       AIMRT_WARN(
           "Service '{}' is registered repeatedly in ros2 rpc backend, module '{}', lib path '{}'",
           info.func_name, info.module_name, info.pkg_path);
@@ -393,11 +394,10 @@ bool Ros2RpcBackend::RegisterServiceFunc(
         std::dynamic_pointer_cast<rclcpp::ServiceBase>(ros2_adapter_wrapper_server_ptr),
         nullptr);
 
-    ros2_adapter_wrapper_server_map_.emplace(info.func_name,
-                                             ros2_adapter_wrapper_server_ptr);
+    ros2_adapter_wrapper_server_map_.emplace(server_key, ros2_adapter_wrapper_server_ptr);
 
-    AIMRT_INFO("Service '{}' is registered to ros2 rpc backend, ros2 func name is '{}'",
-               info.func_name, ros2_func_name);
+    AIMRT_INFO("Service '{}' is registered to ros2 rpc backend, module '{}', ros2 func name is '{}'",
+               info.func_name, info.module_name, ros2_func_name);
 
     return true;
   } catch (const std::exception& e) {
@@ -442,9 +442,11 @@ bool Ros2RpcBackend::RegisterClientFunc(
       remapped_func_name = GetRemappedFuncName(info.func_name, find_option->func_name, find_option->remapping_rule);
     }
 
+    auto client_key = std::string(info.module_name) + ":" + std::string(info.func_name);
+
     // Messages with ros2 type prefix
     if (CheckRosFunc(info.func_name)) {
-      if (ros2_adapter_client_map_.find(info.func_name) != ros2_adapter_client_map_.end()) {
+      if (ros2_adapter_client_map_.find(client_key) != ros2_adapter_client_map_.end()) {
         AIMRT_WARN(
             "Client '{}' is registered repeatedly in ros2 rpc backend, module '{}', lib path '{}'",
             info.func_name, info.module_name, info.pkg_path);
@@ -463,16 +465,16 @@ bool Ros2RpcBackend::RegisterClientFunc(
       ros2_node_ptr_->get_node_services_interface()->add_client(
           std::dynamic_pointer_cast<rclcpp::ClientBase>(ros2_adapter_client_ptr), nullptr);
 
-      ros2_adapter_client_map_.emplace(info.func_name, ros2_adapter_client_ptr);
+      ros2_adapter_client_map_.emplace(client_key, ros2_adapter_client_ptr);
 
-      AIMRT_INFO("Client '{}' is registered to ros2 rpc backend, ros2 func name is '{}'",
-                 info.func_name, ros2_func_name);
+      AIMRT_INFO("Client '{}' is registered to ros2 rpc backend, module '{}', ros2 func name is '{}'",
+                 info.func_name, info.module_name, ros2_func_name);
 
       return true;
     }
 
     // Messages without ros2 type prefix
-    if (ros2_adapter_wrapper_client_map_.find(info.func_name) != ros2_adapter_wrapper_client_map_.end()) {
+    if (ros2_adapter_wrapper_client_map_.find(client_key) != ros2_adapter_wrapper_client_map_.end()) {
       AIMRT_WARN(
           "Client '{}' is registered repeatedly in ros2 rpc backend, module '{}', lib path '{}'",
           info.func_name, info.module_name, info.pkg_path);
@@ -492,7 +494,7 @@ bool Ros2RpcBackend::RegisterClientFunc(
         std::dynamic_pointer_cast<rclcpp::ClientBase>(ros2_adapter_wrapper_client_ptr),
         nullptr);
 
-    ros2_adapter_wrapper_client_map_.emplace(info.func_name, ros2_adapter_wrapper_client_ptr);
+    ros2_adapter_wrapper_client_map_.emplace(client_key, ros2_adapter_wrapper_client_ptr);
 
     AIMRT_INFO("Client '{}' is registered to ros2 rpc backend, ros2 func name is '{}'",
                info.func_name, ros2_func_name);
@@ -530,9 +532,11 @@ void Ros2RpcBackend::Invoke(
       }
     }
 
+    auto client_key = std::string(info.module_name) + ":" + std::string(info.func_name);
+
     // Messages with ros2 type prefix
     if (CheckRosFunc(info.func_name)) {
-      auto finditr = ros2_adapter_client_map_.find(info.func_name);
+      auto finditr = ros2_adapter_client_map_.find(client_key);
       if (finditr == ros2_adapter_client_map_.end()) {
         AIMRT_WARN(
             "Client '{}' unregistered in ros2 rpc backend, module '{}', lib path '{}'",
@@ -555,7 +559,7 @@ void Ros2RpcBackend::Invoke(
     }
 
     // Messages without ros2 type prefix
-    auto finditr = ros2_adapter_wrapper_client_map_.find(info.func_name);
+    auto finditr = ros2_adapter_wrapper_client_map_.find(client_key);
     if (finditr == ros2_adapter_wrapper_client_map_.end()) {
       AIMRT_WARN(
           "Client '{}' unregistered in ros2 rpc backend, module '{}', lib path '{}'",
